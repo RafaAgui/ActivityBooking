@@ -2,16 +2,16 @@ import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
-  selector: 'lab-root',
+  selector: 'app-root',
   standalone: true,
   imports: [RouterOutlet],
   template: `
-    <h1>Welcome to {{title}}!</h1>
-
+    <h1>Bienvenido a {{title}}!</h1>
+    <p>Toma ya! he creado un proyecto en Angular moderno </p>
     <router-outlet />
   `,
-  styles: [],
+  styles: []
 })
 export class AppComponent {
-  title = 'ActivityBookings';
+  title = 'Trololo';
 }
