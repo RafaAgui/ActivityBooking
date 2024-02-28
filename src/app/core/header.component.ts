@@ -7,11 +7,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   template: `
     <h1>{{title}}</h1>
   `,
-  styles:     `
-    h1 {
-      color: #369;
-    }
-  `,
+  styles: ` `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HeaderComponent {
