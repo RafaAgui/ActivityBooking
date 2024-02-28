@@ -10,7 +10,13 @@ import { RouterOutlet } from '@angular/router';
     <p>Toma ya! he creado un proyecto en Angular moderno </p>
     <router-outlet />
   `,
-  styles: []
+  styles: [
+    `
+    h1 {
+      color: #369;
+    }
+    `,
+  ],
 })
 export class AppComponent {
   title = 'Trololo';
