@@ -1,11 +1,12 @@
 import { CurrencyPipe, DatePipe, UpperCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Activity } from '../domain/activity.type';
 
 @Component({
   selector: 'app-bookings',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, UpperCasePipe],
+  imports: [CurrencyPipe, DatePipe, UpperCasePipe, FormsModule],
   template: `
     <article>
       <header>
@@ -18,14 +19,17 @@ import { Activity } from '../domain/activity.type';
       </header>
       <main>
         <p>Current participants: {{ currentParticipants }}</p>
+        <input type="number" [(ngModel)]="newParticipants" />
+        <p>Total participants: {{ currentParticipants +  newParticipants}}</p>
       </main>
       <footer>
-        <button class="primary">Book now</button>
+        <button class="primary" (click)="onBookingClick()">Book now</button>
       </footer>
     </article>
   `,
   styles:
-  `.draft {
+  `
+  .draft {
     color: violet;
     font-style: italic;
   }
@@ -66,4 +70,8 @@ export class BookingsComponent {
   };
 
   currentParticipants = 3;
+  newParticipants = 1;
+  onBookingClick(){
+    console.log('Booking participant', this.currentParticipants +  this.newParticipants)
+  }
 }
