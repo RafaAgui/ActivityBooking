@@ -1,23 +1,19 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { FooterComponent } from './core/footer.component';
+import { HeaderComponent } from './core/header.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, FooterComponent, HeaderComponent],
   template: `
-    <h1>Bienvenido a {{title}}!</h1>
-    <p>Toma ya! he creado un proyecto en Angular moderno </p>
+    <app-header />
     <router-outlet />
+    <app-footer />
   `,
-  styles: [
-    `
-    h1 {
-      color: #369;
-    }
-    `,
-  ],
+  styles: [],
 })
 export class AppComponent {
-  title = 'Trololo';
+
 }
