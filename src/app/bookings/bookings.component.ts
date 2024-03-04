@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe, UpperCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, signal, Signal, WritableSignal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Activity } from '../domain/activity.type';
 
@@ -7,6 +7,7 @@ import { Activity } from '../domain/activity.type';
   selector: 'app-bookings',
   standalone: true,
   imports: [CurrencyPipe, DatePipe, UpperCasePipe, FormsModule],
+
   template: `
     <article>
       <header>
@@ -18,9 +19,9 @@ import { Activity } from '../domain/activity.type';
         </p>
       </header>
       <main>
-        <p>Current participants: {{ currentParticipants }}</p>
-        <input type="number" [(ngModel)]="newParticipants" />
-        <p>Total participants: {{ currentParticipants +  newParticipants}}</p>
+        <p>Current participants: {{ currentParticipants() }}</p>
+        <input type="number" [ngModel]="newParticipants()" (ngModelChange)="onNewParticipantsChange($event)" />
+        <p>Total participants: {{ totalParticipant() }}</p>
       </main>
       <footer>
         <button class="primary" (click)="onBookingClick()">Book now</button>
@@ -54,6 +55,7 @@ import { Activity } from '../domain/activity.type';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
+
 export class BookingsComponent {
   activity: Activity = {
     name: 'Paddle surf',
@@ -69,9 +71,27 @@ export class BookingsComponent {
     userId: 1,
   };
 
-  currentParticipants = 3;
-  newParticipants = 1;
+  // currentParticipants: number = 3;
+  // newParticipants: number = 1;
+
+  //lo paso a señal
+
+  currentParticipants: Signal<number> = signal(3);
+  newParticipants: WritableSignal<number> = signal(1);
+  totalParticipant = computed(
+    () =>  this.currentParticipants() + this.newParticipants());
+
+  onNewParticipantsChange(newValue: number) {
+    this.newParticipants.set(newValue);
+  }
+
+  constructor(){
+    effect(() =>{
+      console.log('News participant', this.newParticipants())
+    })
+  }
+
   onBookingClick(){
-    console.log('Booking participant', this.currentParticipants +  this.newParticipants)
+    console.log('Booking participant', this.totalParticipant())
   }
 }
