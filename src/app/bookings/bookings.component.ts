@@ -22,9 +22,18 @@ import { Activity } from '../domain/activity.type';
         <p>Current participants: {{ currentParticipants() }}</p>
         <input type="number" [ngModel]="newParticipants()" (ngModelChange)="onNewParticipantsChange($event)" />
         <p>Total participants: {{ totalParticipant() }}</p>
+        <div>
+          @for (participant of participants(); track participant.id) {
+            <span>🏃‍♂️ {{ participant.id }}</span>
+          }
+        </div>
       </main>
       <footer>
+        @if(canBook()){
         <button class="primary" (click)="onBookingClick()">Book now</button>
+        } @else{
+          <p>Book your place</p>
+        }
       </footer>
     </article>
   `,
@@ -75,15 +84,24 @@ export class BookingsComponent {
   // newParticipants: number = 1;
 
   //lo paso a señal
-
+  participants: WritableSignal<{ id: number }[]> = signal([{ id: 1 }, { id: 2 }, { id: 3 }]);
   currentParticipants: Signal<number> = signal(3);
   newParticipants: WritableSignal<number> = signal(1);
   totalParticipant = computed(
     () =>  this.currentParticipants() + this.newParticipants());
 
-  onNewParticipantsChange(newValue: number) {
-    this.newParticipants.set(newValue);
+  onNewParticipantsChange(newParticipants: number) {
+    this.newParticipants.set(newParticipants);
+    this.participants.update((participants) => {
+      participants = participants.slice(0, this.currentParticipants());
+      for (let i = 1; i <= newParticipants; i++) {
+        participants.push({ id: this.currentParticipants() + i });
+      }
+      return participants;
+    });
   }
+
+  canBook= computed(() => this.newParticipants() > 1);
 
   constructor(){
     effect(() =>{
