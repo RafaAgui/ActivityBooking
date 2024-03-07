@@ -1,7 +1,8 @@
 import { CurrencyPipe, DatePipe, UpperCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, signal, Signal, WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, input, InputSignal, signal, Signal, WritableSignal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Activity } from '../domain/activity.type';
+import { ACTIVITIES } from '../domain/activities.data';
+import { Activity, NULL_ACTIVITY } from '../domain/activity.type';
 
 @Component({
   selector: 'app-bookings',
@@ -11,12 +12,14 @@ import { Activity } from '../domain/activity.type';
   template: `
     <article>
       <header>
+        @if (activity(); as activity) {
         <h2>{{ activity.name }}</h2>
         <p [class]="activity.status">
           <span>{{ activity.location }} {{ activity.price | currency }}</span>
           <span>{{ activity.date | date : 'dd-MMM-yyyy' }}</span>
           <span>{{ activity.status | uppercase }}</span>
         </p>
+        }
       </header>
       <main>
         <p>Current participants: {{ currentParticipants() }}</p>
@@ -65,20 +68,10 @@ import { Activity } from '../domain/activity.type';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class BookingsComponent {
-  activity: Activity = {
-    name: 'Paddle surf',
-    location: 'Lake Leman at Lausanne',
-    price: 100,
-    date: new Date(2025, 7, 15),
-    minParticipants: 4,
-    maxParticipants: 10,
-    status: 'published',
-    id: 1,
-    slug: 'paddle-surf',
-    duration: 2,
-    userId: 1,
-  };
+export default class BookingsComponent {
+  slug: InputSignal<string> = input.required<string>();
+
+  activity: Signal<Activity> = computed(() => ACTIVITIES.find((a) => a.slug===this.slug()) || NULL_ACTIVITY);
 
   // currentParticipants: number = 3;
   // newParticipants: number = 1;
