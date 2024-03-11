@@ -9,17 +9,9 @@ import { ChangeDetectionStrategy, Component, computed, signal, Signal, WritableS
       <nav>
         <a [href]="author.homepage" target="_blank">By {{ author.name }}.</a>
         <div>{{ year }}</div>
-        @if(!cookiesAccepted()){
-          <button class="secondary outline" (click)="onAcceptCookies()">Accept cookies</button>
-        } @else {
-          <p>Cookies Accepted</p>
-        }
+        <button [hidden]="cookiesAccepted()" class="secondary outline" (click)="onAcceptCookies()">Accept cookies</button>
+        <p [hidden]="cookiesPending()">Cookies Accepted</p>
       </nav>
-
-      <div>
-      <button [hidden]="cookiesAccepted()" class="secondary outline" (click)="onAcceptCookies()">Accept cookies</button>
-      <p [hidden]="cookiesPending()">Cookies Accepted</p>
-      </div>
     </footer>
   `,
   styles: ``,
