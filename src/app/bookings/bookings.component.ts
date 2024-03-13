@@ -1,108 +1,195 @@
 import { CurrencyPipe, DatePipe, UpperCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, input, InputSignal, signal, Signal, WritableSignal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  InputSignal,
+  Signal,
+  WritableSignal,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ACTIVITIES } from '../domain/activities.data';
+import { Meta, Title } from '@angular/platform-browser';
 import { Activity, NULL_ACTIVITY } from '../domain/activity.type';
+import { Booking, NULL_BOOKING } from '../domain/booking.type';
 
 @Component({
-  selector: 'app-bookings',
+  selector: 'lab-bookings',
   standalone: true,
   imports: [CurrencyPipe, DatePipe, UpperCasePipe, FormsModule],
-
   template: `
     <article>
-      <header>
-        @if (activity(); as activity) {
-        <h2>{{ activity.name }}</h2>
-        <p [class]="activity.status">
-          <span>{{ activity.location }} {{ activity.price | currency }}</span>
-          <span>{{ activity.date | date : 'dd-MMM-yyyy' }}</span>
-          <span>{{ activity.status | uppercase }}</span>
-        </p>
-        }
-      </header>
+      @if (activity(); as activity) {
+        <header>
+          <h2>{{ activity.name }}</h2>
+          <p [class]="activity.status">
+            <span>{{ activity.location }} </span>
+            <span>{{ activity.price | currency: 'EUR' }}</span>
+            <span>{{ activity.date | date: 'dd-MMM-yyyy' }}</span>
+            <span>{{ activity.status | uppercase }}</span>
+          </p>
+        </header>
+      }
       <main>
-        <p>Current participants: {{ currentParticipants() }}</p>
-        <input type="number" [ngModel]="newParticipants()" (ngModelChange)="onNewParticipantsChange($event)" />
-        <p>Total participants: {{ totalParticipant() }}</p>
+        <p>
+          Current participants: <b>{{ currentParticipants() }}</b>
+        </p>
+        <form>
+          <label for="newParticipants"
+            >New participants:
+            <span>
+              @for (participant of participants(); track participant.id) {
+                <span>🏃‍♂️ {{ participant.id }}</span>
+              } @empty {
+                <span>🕸️</span>
+              }
+            </span>
+          </label>
+          <input
+            name="newParticipants"
+            type="number"
+            min="0"
+            [max]="maxNewParticipants()"
+            [ngModel]="newParticipants()"
+            (ngModelChange)="onNewParticipantsChange($event)"
+          />
+        </form>
         <div>
-          @for (participant of participants(); track participant.id) {
-            <span>🏃‍♂️ {{ participant.id }}</span>
-          }
+          Total participants: <b>{{ totalParticipants() }}</b>
         </div>
       </main>
       <footer>
-        @if(canBook()){
-        <button class="primary" (click)="onBookingClick()">Book now</button>
-        } @else{
+        @if (canBook()) {
+          <button class="primary" (click)="onBookingClick()">Book now</button>
+        } @else {
           <p>Book your place</p>
         }
       </footer>
     </article>
   `,
-  styles:
-  `
-  .draft {
-    color: violet;
-    font-style: italic;
-  }
-  .published {
-    color: darkgreen;
-  }
-  .confirmed {
-    color: green;
-  }
-  .sold-out {
-    color: limegreen;
-    font-style: italic;
-  }
-  .done {
-    color: orange;
-    font-style: italic;
-  }
-  .cancelled {
-    color: red;
-    font-style: italic;
-  }
+  styles: `
+    .draft {
+      color: violet;
+      font-style: italic;
+    }
+    .published {
+      color: limegreen;
+    }
+    .confirmed {
+      color: green;
+    }
+    .sold-out {
+      color: green;
+      font-style: italic;
+    }
+    .done {
+      color: orange;
+      font-style: italic;
+    }
+    .cancelled {
+      color: red;
+      font-style: italic;
+    }
   `,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-
 export default class BookingsComponent {
+  #http = inject(HttpClient);
+  #title = inject(Title);
+  #meta = inject(Meta);
+
+  /** The slug of the activity that comes from the router */
   slug: InputSignal<string> = input.required<string>();
 
-  activity: Signal<Activity> = computed(() => ACTIVITIES.find((a) => a.slug===this.slug()) || NULL_ACTIVITY);
+  /** The activity that comes from the data array based on the slug signal */
+  // activity: Signal<Activity> = computed(
+  //   () =>  ACTIVITIES.find((a) => a.slug === this.slug()) || NULL_ACTIVITY,
+  // );
 
-  // currentParticipants: number = 3;
-  // newParticipants: number = 1;
+  activity: WritableSignal<Activity> = signal(NULL_ACTIVITY);
 
-  //lo paso a señal
+  currentParticipants = signal(3);
+
   participants: WritableSignal<{ id: number }[]> = signal([{ id: 1 }, { id: 2 }, { id: 3 }]);
-  currentParticipants: Signal<number> = signal(3);
-  newParticipants: WritableSignal<number> = signal(1);
-  totalParticipant = computed(
-    () =>  this.currentParticipants() + this.newParticipants());
 
-  onNewParticipantsChange(newParticipants: number) {
-    this.newParticipants.set(newParticipants);
-    this.participants.update((participants) => {
-      participants = participants.slice(0, this.currentParticipants());
-      for (let i = 1; i <= newParticipants; i++) {
-        participants.push({ id: this.currentParticipants() + i });
+  newParticipants: WritableSignal<number> = signal(0);
+
+  totalParticipants: Signal<number> = computed(
+    () => this.currentParticipants() + this.newParticipants(),
+  );
+
+  maxNewParticipants = computed(() => this.activity().maxParticipants - this.currentParticipants());
+
+  isSoldOut = computed(() => this.totalParticipants() >= this.activity().maxParticipants);
+
+  canBook = computed(() => this.newParticipants() > 0);
+
+  constructor() {
+    effect(
+      () => {
+        const slug = this.slug();
+        const apiUrl = 'http://localhost:3000/activities';
+        const url = `${apiUrl}?slug=${slug}`;
+        this.#http.get<Activity[]>(url).subscribe((result) => {
+          this.activity.set(result[0]);
+        });
+      },
+      { allowSignalWrites: true },
+    );
+
+    effect(() => {
+      const activity = this.activity();
+      this.#title.setTitle(activity.name);
+      const description = `${activity.name} in ${activity.location} on ${activity.date} for ${activity.price}`;
+      this.#meta.updateTag({ name: 'description', content: description });
+    });
+    effect(() => {
+      if (this.isSoldOut()) {
+        console.log('Se ha vendido todo');
+      } else {
+        console.log('Hay entradas disponibles');
       }
-      return participants;
     });
   }
 
-  canBook= computed(() => this.newParticipants() > 1);
-
-  constructor(){
-    effect(() =>{
-      console.log('News participant', this.newParticipants())
-    })
+  onNewParticipantsChange(newParticipants: number) {
+    /** Setting the newParticipants value */
+    this.newParticipants.set(newParticipants);
+    /** Updating the participants array */
+    this.participants.update((participants) => {
+      const updatedParticipants = participants.slice(0, this.currentParticipants());
+      for (let i = 1; i <= newParticipants; i++) {
+        updatedParticipants.push({ id: updatedParticipants.length + 1 });
+      }
+      return updatedParticipants;
+    });
   }
 
-  onBookingClick(){
-    console.log('Booking participant', this.totalParticipant())
+  onBookingClick() {
+    console.log('Saving Booking for participants: ', this.newParticipants());
+    const newBooking: Booking = NULL_BOOKING;
+    newBooking.activityId = this.activity().id;
+    newBooking.participants = this.newParticipants();
+    if (newBooking.payment)
+      newBooking.payment.amount = this.activity().price * this.newParticipants();
+    const apiUrl = 'http://localhost:3000/bookings';
+
+    this.#http.post<Booking>(apiUrl, newBooking).subscribe({
+      next: (result) => {
+        console.log('booking saved', result);
+        // ToDo : save activity status
+      },
+      error: (error) => {
+        console.log('error', error);
+      },
+    });
+
+    console.log('Booking saved for participants: ', this.newParticipants());
+    this.currentParticipants.set(this.totalParticipants());
+    this.newParticipants.set(0);
   }
 }

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, inject, signal, WritableSignal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ACTIVITIES } from '../domain/activities.data';
 import { Activity } from '../domain/activity.type';
@@ -12,7 +13,7 @@ import { Activity } from '../domain/activity.type';
       <h2>Activities</h2>
     </header>
     <main>
-    @for(activity of activities; track activity.id){
+    @for(activity of activities(); track activity.id){
       <p>
         <span>
           <a [routerLink]="['/', 'bookings', activity.slug]" r >{{activity.name}}</a>
@@ -27,5 +28,14 @@ import { Activity } from '../domain/activity.type';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export default class HomePage {
-  activities: Activity[] = ACTIVITIES;
+  activities: WritableSignal<Activity[]> = signal([]);
+  #http = inject(HttpClient);
+
+  constructor(){
+    this.#http.get<Activity[]>('http://localhost:3000/activities').subscribe((result) => {
+      this.activities.set(result);
+      console.log('activities', this.activities);
+  });
+    console.log('constructor finished');
+  }
 }
