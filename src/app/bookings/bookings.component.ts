@@ -179,17 +179,28 @@ export default class BookingsComponent {
     const apiUrl = 'http://localhost:3000/bookings';
 
     this.#http.post<Booking>(apiUrl, newBooking).subscribe({
-      next: (result) => {
-        console.log('booking saved', result);
-        // ToDo : save activity status
+      next: () => {
+        this.putActivityStatus()
       },
       error: (error) => {
         console.log('error', error);
       },
     });
 
-    console.log('Booking saved for participants: ', this.newParticipants());
-    this.currentParticipants.set(this.totalParticipants());
-    this.newParticipants.set(0);
+  }
+
+  putActivityStatus(){
+    const updateActivity = this.activity();
+    updateActivity.status = 'confirmed';
+    this.#http.put<Activity>('http://localhost:3000/activities' + updateActivity.id, updateActivity)
+    .subscribe({
+      next: () => {
+        this.currentParticipants.set(this.totalParticipants());
+        this.newParticipants.set(0);
+      },
+      error: (error) => {
+        console.log('error', error);
+      },
+    });
   }
 }
