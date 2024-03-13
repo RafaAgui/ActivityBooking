@@ -12,8 +12,10 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Meta, Title } from '@angular/platform-browser';
+import { map, switchMap } from 'rxjs';
 import { Activity, NULL_ACTIVITY } from '../domain/activity.type';
 import { Booking, NULL_BOOKING } from '../domain/booking.type';
 
@@ -102,17 +104,7 @@ export default class BookingsComponent {
   #title = inject(Title);
   #meta = inject(Meta);
 
-  /** The slug of the activity that comes from the router */
-  slug: InputSignal<string> = input.required<string>();
-
-  /** The activity that comes from the data array based on the slug signal */
-  // activity: Signal<Activity> = computed(
-  //   () =>  ACTIVITIES.find((a) => a.slug === this.slug()) || NULL_ACTIVITY,
-  // );
-
-  activity: WritableSignal<Activity> = signal(NULL_ACTIVITY);
-
-  currentParticipants = signal(3);
+  currentParticipants: WritableSignal<number> = signal<number>(3);
 
   participants: WritableSignal<{ id: number }[]> = signal([{ id: 1 }, { id: 2 }, { id: 3 }]);
 
@@ -121,26 +113,29 @@ export default class BookingsComponent {
   totalParticipants: Signal<number> = computed(
     () => this.currentParticipants() + this.newParticipants(),
   );
-
   maxNewParticipants = computed(() => this.activity().maxParticipants - this.currentParticipants());
-
   isSoldOut = computed(() => this.totalParticipants() >= this.activity().maxParticipants);
-
   canBook = computed(() => this.newParticipants() > 0);
 
-  constructor() {
-    effect(
-      () => {
-        const slug = this.slug();
+  /** The slug of the activity that comes from the router */
+
+  slug: InputSignal<string> = input.required<string>();
+
+  activity: Signal<Activity> = toSignal(
+    toObservable(this.slug).pipe(
+      switchMap((slug: string) => {
         const apiUrl = 'http://localhost:3000/activities';
         const url = `${apiUrl}?slug=${slug}`;
-        this.#http.get<Activity[]>(url).subscribe((result) => {
-          this.activity.set(result[0]);
-        });
-      },
-      { allowSignalWrites: true },
-    );
+        return this.#http.get<Activity[]>(url);
+      }),
+      map((activities: Activity[]) => {
+        return activities[0];
+      }),
+    ),
+    { initialValue: NULL_ACTIVITY },
+  );
 
+  constructor() {
     effect(() => {
       const activity = this.activity();
       this.#title.setTitle(activity.name);
@@ -170,37 +165,33 @@ export default class BookingsComponent {
   }
 
   onBookingClick() {
-    console.log('Saving Booking for participants: ', this.newParticipants());
     const newBooking: Booking = NULL_BOOKING;
     newBooking.activityId = this.activity().id;
     newBooking.participants = this.newParticipants();
     if (newBooking.payment)
       newBooking.payment.amount = this.activity().price * this.newParticipants();
-    const apiUrl = 'http://localhost:3000/bookings';
 
+    const apiUrl = 'http://localhost:3000/bookings';
     this.#http.post<Booking>(apiUrl, newBooking).subscribe({
       next: () => {
-        this.putActivityStatus()
+        this.putActivityStatus();
       },
-      error: (error) => {
-        console.log('error', error);
+      error: (err) => {
+        console.log('err', err);
       },
     });
-
   }
 
-  putActivityStatus(){
-    const updateActivity = this.activity();
-    updateActivity.status = 'confirmed';
-    this.#http.put<Activity>('http://localhost:3000/activities' + updateActivity.id, updateActivity)
-    .subscribe({
-      next: () => {
-        this.currentParticipants.set(this.totalParticipants());
-        this.newParticipants.set(0);
-      },
-      error: (error) => {
-        console.log('error', error);
-      },
-    });
+  putActivityStatus() {
+    const updatedActivity = this.activity();
+    updatedActivity.status = 'confirmed';
+    this.#http
+      .put<Activity>('http://localhost:3000/activities/' + updatedActivity.id, updatedActivity)
+      .subscribe({
+        next: () => {
+          this.currentParticipants.set(this.totalParticipants());
+          this.newParticipants.set(0);
+        },
+      });
   }
 }
