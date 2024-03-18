@@ -15,14 +15,15 @@ import {
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Meta, Title } from '@angular/platform-browser';
-import { Observable, map, switchMap } from 'rxjs';
-import { Activity, NULL_ACTIVITY } from '../domain/activity.type';
-import { Booking, NULL_BOOKING } from '../domain/booking.type';
+import { Observable, catchError, map, of, switchMap } from 'rxjs';
+import { Activity, NULL_ACTIVITY } from '../../domain/activity.type';
+import { Booking, NULL_BOOKING } from '../../domain/booking.type';
+import { BookingConfirmComponent } from './booking-confirm.component';
 
 @Component({
   selector: 'lab-bookings',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, UpperCasePipe, FormsModule],
+  imports: [CurrencyPipe, DatePipe, UpperCasePipe, FormsModule, BookingConfirmComponent],
   template: `
     <article>
       @if (activity(); as activity) {
@@ -65,11 +66,7 @@ import { Booking, NULL_BOOKING } from '../domain/booking.type';
         </div>
       </main>
       <footer>
-        @if (canBook()) {
-          <button class="primary" (click)="onBookingClick()">Book now</button>
-        } @else {
-          <p>Book your place</p>
-        }
+        <lab-booking-confirm [canBook]="canBook()" (saveBooking)="onSaveBooking()" />
       </footer>
     </article>
   `,
@@ -99,7 +96,7 @@ import { Booking, NULL_BOOKING } from '../domain/booking.type';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class BookingsComponent {
+export default class BookingsPage {
   #http = inject(HttpClient);
   #title = inject(Title);
   #meta = inject(Meta);
@@ -118,32 +115,35 @@ export default class BookingsComponent {
   canBook = computed(() => this.newParticipants() > 0);
 
   /** The slug of the activity that comes from the router */
-
   slug: InputSignal<string> = input.required<string>();
 
-  // 0 -> si fuese síncrona
+  // 0 -> If computation could be synchronous
 
   // activityOld: Signal<Activity> = computed(
   //   () => ACTIVITIES.find((a) => a.slug === this.slug()) || NULL_ACTIVITY,
   // );
 
-  // 1 -> convertir a observable
-  slug$: Observable<string> = toObservable(this.slug);
-  // 2 -> Para cada cambio en el observable, genero otro observable, y me suscribo a ese último
-  activity$: Observable<Activity> = this.slug$.pipe(
+  // 1 -> Convert source signal to an observable
+  #slug$: Observable<string> = toObservable(this.slug);
+  // 2 -> RxJs operators do the heavy work with other async calls and transformations
+  #activity$: Observable<Activity> = this.#slug$.pipe(
     switchMap((slug: string) => {
       const apiUrl = 'http://localhost:3000/activities';
       const url = `${apiUrl}?slug=${slug}`;
       return this.#http.get<Activity[]>(url);
     }),
     map((activities: Activity[]) => {
-      return activities[0];
+      return activities[0] || NULL_ACTIVITY;
+    }),
+    catchError((error) => {
+      console.log('error', error);
+      return of(NULL_ACTIVITY);
     }),
   );
-  // 3 - > Transformo un observable a una señal usada en la template y otras computed...
-  activity: Signal<Activity> = toSignal(this.activity$, { initialValue: NULL_ACTIVITY });
+  // 3 - > Convert back the observable into a public signal usable from the template
+  activity: Signal<Activity> = toSignal(this.#activity$, { initialValue: NULL_ACTIVITY });
 
-  // 4 - > en una sola instrucción
+  // 4 - > Do it all at once
   // activity: Signal<Activity> = toSignal(
   //   toObservable(this.slug).pipe(
   //     switchMap((slug: string) => {
@@ -187,7 +187,7 @@ export default class BookingsComponent {
     });
   }
 
-  onBookingClick() {
+  onSaveBooking() {
     const newBooking: Booking = NULL_BOOKING;
     newBooking.activityId = this.activity().id;
     newBooking.participants = this.newParticipants();

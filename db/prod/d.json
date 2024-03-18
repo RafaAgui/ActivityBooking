@@ -222,20 +222,7 @@
       "userId": 2
     }
   ],
-  "bookings": [
-    {
-      "id": 1,
-      "activityId": 6,
-      "userId": 0,
-      "date": "2024-03-13T14:48:06.393Z",
-      "participants": 1,
-      "payment": {
-        "method": "none",
-        "amount": 140,
-        "status": "none"
-      }
-    }
-  ],
+  "bookings": [],
   "users": [
     {
       "email": "richard@virg.in",
