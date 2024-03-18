@@ -1,41 +1,65 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal, WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, WritableSignal, inject, Signal, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
-import { ACTIVITIES } from '../domain/activities.data';
+import { catchError, of } from 'rxjs';
 import { Activity } from '../domain/activity.type';
 
 @Component({
   standalone: true,
   imports: [RouterLink],
   template: `
-  <article>
-    <header>
-      <h2>Activities</h2>
-    </header>
-    <main>
-    @for(activity of activities(); track activity.id){
-      <p>
-        <span>
-          <a [routerLink]="['/', 'bookings', activity.slug]" r >{{activity.name}}</a>
-        </span>
-          {{activity.location}}
-      </p>
-    }
-    </main>
-  </article>
+    <article>
+      <header>
+        <h2>Activities</h2>
+      </header>
+      <main>
+        @for (activity of activities(); track activity.id) {
+          <p>
+            <span>
+              <a [routerLink]="['/', 'bookings', activity.slug]"> {{ activity.name }}</a>
+            </span>
+            <span>at {{ activity.location }} </span>
+          </p>
+        }
+      </main>
+    </article>
   `,
   styles: ``,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class HomePage {
-  activities: WritableSignal<Activity[]> = signal([]);
+  #title = inject(Title);
+  #meta = inject(Meta);
   #http = inject(HttpClient);
 
-  constructor(){
-    this.#http.get<Activity[]>('http://localhost:3000/activities').subscribe((result) => {
-      this.activities.set(result);
-      console.log('activities', this.activities);
-  });
-    console.log('constructor finished');
+  // activities: WritableSignal<Activity[]> = signal([]);
+
+    // Qué hace el toSignal() ??
+  // 1 - subscribe
+  // 2 - signal.set
+  // 3 - unsubscribe
+  // 4 - signal read-only no mutable
+
+
+  activities: Signal<Activity[]> = toSignal(
+    this.#http.get<Activity[]>('http://localhost:3000/activities').pipe(
+      catchError((error)=>{
+        console.log(error);
+        return of([]);
+      })
+    ),
+    { initialValue: [] },
+
+  )
+
+  constructor() {
+    this.#title.setTitle('🏡 - Home');
+    this.#meta.updateTag({ name: 'description', content: 'Home page' });
+
+  //   this.#http
+  //     .get<Activity[]>('http://localhost:3000/activities')
+  //     .subscribe((result: Activity[]) => this.activities.set(result));
   }
 }
