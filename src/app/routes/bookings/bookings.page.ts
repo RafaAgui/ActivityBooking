@@ -19,6 +19,7 @@ import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { Activity, NULL_ACTIVITY } from '../../domain/activity.type';
 import { Booking, NULL_BOOKING } from '../../domain/booking.type';
 import { BookingConfirmComponent } from './booking-confirm.component';
+import { BookingsService } from './bookings.service';
 
 @Component({
   selector: 'lab-bookings',
@@ -97,14 +98,13 @@ import { BookingConfirmComponent } from './booking-confirm.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class BookingsPage {
-  #http = inject(HttpClient);
+
   #title = inject(Title);
   #meta = inject(Meta);
+  #service = inject(BookingsService);
 
   currentParticipants: WritableSignal<number> = signal<number>(3);
-
   participants: WritableSignal<{ id: number }[]> = signal([{ id: 1 }, { id: 2 }, { id: 3 }]);
-
   newParticipants: WritableSignal<number> = signal(0);
 
   totalParticipants: Signal<number> = computed(
@@ -117,46 +117,16 @@ export default class BookingsPage {
   /** The slug of the activity that comes from the router */
   slug: InputSignal<string> = input.required<string>();
 
-  // 0 -> If computation could be synchronous
-
-  // activityOld: Signal<Activity> = computed(
-  //   () => ACTIVITIES.find((a) => a.slug === this.slug()) || NULL_ACTIVITY,
-  // );
-
-  // 1 -> Convert source signal to an observable
   #slug$: Observable<string> = toObservable(this.slug);
-  // 2 -> RxJs operators do the heavy work with other async calls and transformations
+
   #activity$: Observable<Activity> = this.#slug$.pipe(
     switchMap((slug: string) => {
-      const apiUrl = 'http://localhost:3000/activities';
-      const url = `${apiUrl}?slug=${slug}`;
-      return this.#http.get<Activity[]>(url);
-    }),
-    map((activities: Activity[]) => {
-      return activities[0] || NULL_ACTIVITY;
-    }),
-    catchError((error) => {
-      console.log('error', error);
-      return of(NULL_ACTIVITY);
+      return this.#service.getActivitiesbySlug$(slug);
     }),
   );
-  // 3 - > Convert back the observable into a public signal usable from the template
+
   activity: Signal<Activity> = toSignal(this.#activity$, { initialValue: NULL_ACTIVITY });
 
-  // 4 - > Do it all at once
-  // activity: Signal<Activity> = toSignal(
-  //   toObservable(this.slug).pipe(
-  //     switchMap((slug: string) => {
-  //       const apiUrl = 'http://localhost:3000/activities';
-  //       const url = `${apiUrl}?slug=${slug}`;
-  //       return this.#http.get<Activity[]>(url);
-  //     }),
-  //     map((activities: Activity[]) => {
-  //       return activities[0];
-  //     }),
-  //   ),
-  //   { initialValue: NULL_ACTIVITY },
-  // );
 
   constructor() {
     effect(() => {
@@ -194,8 +164,7 @@ export default class BookingsPage {
     if (newBooking.payment)
       newBooking.payment.amount = this.activity().price * this.newParticipants();
 
-    const apiUrl = 'http://localhost:3000/bookings';
-    this.#http.post<Booking>(apiUrl, newBooking).subscribe({
+    this.#service.postBooking$(newBooking).subscribe({
       next: () => {
         this.putActivityStatus();
       },
@@ -208,9 +177,7 @@ export default class BookingsPage {
   putActivityStatus() {
     const updatedActivity = this.activity();
     updatedActivity.status = 'confirmed';
-    this.#http
-      .put<Activity>('http://localhost:3000/activities/' + updatedActivity.id, updatedActivity)
-      .subscribe({
+    this.#service.putActivityStatus$(updatedActivity).subscribe({
         next: () => {
           this.currentParticipants.set(this.totalParticipants());
           this.newParticipants.set(0);
